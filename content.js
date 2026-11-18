@@ -495,10 +495,10 @@
       'aria-hidden': 'true',
     });
     const corners = [
-      'M3 8 V6 A3 3 0 0 1 6 3 H8',
-      'M16 3 H18 A3 3 0 0 1 21 6 V8',
-      'M21 16 V18 A3 3 0 0 1 18 21 H16',
-      'M8 21 H6 A3 3 0 0 1 3 18 V16',
+      'M3 7 V5 A3 3 0 0 1 6 2 H8',
+      'M16 2 H18 A3 3 0 0 1 21 5 V7',
+      'M21 13 V15 A3 3 0 0 1 18 18 H16',
+      'M3 13 V15 A3 3 0 0 0 6 18 H8 C10.5 18 9.5 22 13 22', // corner runs off into the rope tail
     ];
     for (const d of corners) {
       const p = document.createElementNS(NS, 'path');
@@ -506,7 +506,7 @@
       svg.append(p);
     }
     const play = document.createElementNS(NS, 'path');
-    set(play, { d: 'M10.2 8.6 L15.8 12 L10.2 15.4 Z', fill: 'currentColor', 'stroke-width': 1.5 });
+    set(play, { d: 'M10.2 6.9 L15.6 10 L10.2 13.1 Z', fill: 'currentColor', 'stroke-width': 1.5 });
     svg.append(play);
     return svg;
   }
@@ -553,7 +553,7 @@
       {
         class: 'ms-root ytms-topbtn',
         type: 'button',
-        'aria-label': 'Lasso: select videos',
+        'aria-label': 'Lasso: select multiple videos',
         onclick: () => {
           if (!busy) setActive(!state.active);
         },
@@ -692,7 +692,6 @@
   function renderList() {
     const n = state.items.length;
     topCount.textContent = n ? (n > 999 ? '999+' : String(n)) : '';
-    topBtn.title = n ? `Lasso (${n} selected)` : 'Lasso: select videos';
     countEl.textContent = `${n} selected`;
     addBtn.textContent = n ? `Add ${n} video${n === 1 ? '' : 's'} to playlist` : 'Add to playlist';
     addBtn.disabled = busy || n === 0;
@@ -797,6 +796,7 @@
     state.active = on;
     topBtn.classList.toggle('ytms-on', on);
     topBtn.setAttribute('aria-pressed', String(on));
+    topBtn.title = on ? 'Exit Lasso' : 'Lasso: select multiple videos';
     root.classList.toggle('ytms-open', on);
     panel.style.display = on ? '' : 'none';
     save();
