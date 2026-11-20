@@ -9,7 +9,7 @@ Lasso is a Chrome extension for building and cleaning up YouTube playlists in bu
 - **Select in order.** Click videos on any YouTube page; each gets a numbered badge showing its position.
 - **Add to a playlist.** Send the whole selection to an existing playlist, a new one, or one you paste a link to. Videos are added in the order you selected them.
 - **Remove from a playlist.** Remove every selected video from the chosen playlist, for mass clean-up or emptying a playlist.
-- **Select by title.** Type part of a title and select every video on the page that contains it.
+- **Select by title or upload date.** Filter the page by words in the title, by how recently videos were uploaded, or both, and select every match at once.
 - **Total length.** The panel shows the combined length of the selection, in hours and in days and hours.
 - **Playlist duration.** On any playlist page, a panel shows the playlist's total length, how many videos were counted, and how many were not. A **Load all videos** button loads playlists longer than 100 videos.
 - **Keeps your selection.** The selection survives searches and page changes, so you can collect hundreds of videos from many pages before adding them.
@@ -33,7 +33,7 @@ To update later, download the ZIP again, replace the files, click the reload ico
    - **Shift-click** to select everything between the last video you clicked and this one.
    - **Ctrl-click** (Cmd-click on Mac) to open a video normally.
    - **Select all on page** selects every video currently loaded on the page.
-   - **Filter** opens a **Title contains…** box that selects every loaded video whose title includes the text you type (not case-sensitive).
+   - **Filter** opens a box where you can select by **title** (videos whose title includes your text, not case-sensitive), by **upload date**, or both together. For dates, use a quick button (Last 7 days, Last 30 days, Last year, Older than 1 year) or set your own **Newer than** and **Older than** dates. The button shows how many loaded videos match before you select them.
    - **On the Home page, click the title area under a video, not the thumbnail.** Thumbnails on Home start a preview when you hover, and clicking one opens the video instead of selecting it. Everywhere else (search, channel pages, playlists) you can click anywhere on the video.
 
    <img src="home-click-area.webp" alt="A video on the YouTube Home page: the thumbnail is marked 'Not the thumbnail', and the title and channel row underneath is highlighted in purple and marked 'Click here to select'" width="480">
@@ -50,7 +50,7 @@ To update later, download the ZIP again, replace the files, click the reload ico
 3. If the playlist has more than 100 videos, click **Load all videos** so every video is counted.
 4. "Videos not counted" covers videos not loaded yet and videos with no length (private, deleted, live or upcoming).
 
-This works on its own; you don't need to turn Lasso's select mode on.
+This works on its own; you don't need to turn Lasso's select mode on. To hide the panel, open Lasso, click the gear button beside **Done**, and switch **Playlist duration panel** off.
 
 ![A YouTube playlist page with the Playlist duration panel in the left-hand header, showing a total of 4:12:34 across 4 videos, and the Lasso panel open at the bottom right](playlist-duration.webp)
 
@@ -66,6 +66,7 @@ This works on its own; you don't need to turn Lasso's select mode on.
 
 - Removal cannot be undone, and it removes every copy of a video if the playlist contains it more than once.
 - Videos are sent 20 at a time. If any fail (for example a private or deleted video), they stay selected so you can retry.
+- The date filter reads YouTube's "3 weeks ago" style labels, so it is exact for recent videos and approximate (to the month or year) for older ones. It needs YouTube set to English.
 - Lengths are read from the time badge on each thumbnail. Shorts and live streams have none and are counted as "unknown length".
 - The extension works only on `www.youtube.com`, acts as the account you are signed in to, and sends nothing anywhere except YouTube.
 - It relies on the same internal requests the YouTube site uses, not the official API, so there is no daily limit. A YouTube redesign could break it until the extension is updated.

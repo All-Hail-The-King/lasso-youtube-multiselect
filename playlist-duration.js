@@ -148,7 +148,8 @@
   function render() {
     const ctx = getContext();
     let panel = document.getElementById(PANEL_ID);
-    if (!ctx) { panel?.remove(); lastSig = ''; return; }
+    const off = document.documentElement.getAttribute('data-lasso-duration') === 'off'; // Lasso option
+    if (!ctx || off) { panel?.remove(); lastSig = ''; return; }
 
     let seconds = 0, counted = 0;
     for (const it of ctx.items) {
@@ -248,7 +249,7 @@
 
   // ---------- keep it up to date ----------
   const safeRender = () => { try { renderChecked(); } catch (e) { console.debug('[lasso:playlist-duration]', e); } };
-  ['yt-navigate-finish', 'yt-page-data-updated'].forEach((ev) => document.addEventListener(ev, safeRender));
+  ['yt-navigate-finish', 'yt-page-data-updated', 'lasso-options'].forEach((ev) => document.addEventListener(ev, safeRender));
   setInterval(safeRender, 1500);
   safeRender();
 })();

@@ -4,7 +4,10 @@
   window.__ytmsLoaded = true;
 
   // ------------------------------------------------------------------ config
-  const STORE_KEY = 'ytms-state-v1';
+  // v2: a new key, so YouTube tabs still running an older copy of Lasso (which
+  // echo the shared state back) can no longer overwrite this one's selection.
+  const STORE_KEY = 'ytms-state-v2';
+  const LEGACY_KEY = 'ytms-state-v1'; // read once, to carry the selection over
   const SUPPORT_URL = 'https://ko-fi.com/K7O62AUP2Z';
   const BATCH_SIZE = 20; // videos per request
   const BATCH_DELAY_MS = 350;
@@ -37,20 +40,29 @@
     items: [], // [{id, title}] in selection order
     playlists: [], // [{id, title}]
     target: '', // playlist id, '__new' or '__url'
+    opts: { duration: true }, // user options
+    rev: 0, // time of the last user change; older copies from other tabs are ignored
   };
   let lastClickedId = null;
   let busy = false;
 
   function load() {
     try {
-      const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      const s = JSON.parse(
+        localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_KEY) || '{}'
+      );
       if (Array.isArray(s.items)) state.items = s.items.filter((i) => i && i.id);
       if (Array.isArray(s.playlists)) state.playlists = s.playlists;
       if (typeof s.target === 'string') state.target = s.target;
       state.active = !!s.active;
+      state.rev = Number(s.rev) || 0;
+      if (s.opts && typeof s.opts === 'object') state.opts = { duration: s.opts.duration !== false };
     } catch (_) {}
   }
-  function save() {
+  // bump=false for background saves (filling in a length or age), so they can
+  // never outrank a real change made in another tab.
+  function save(bump = true) {
+    if (bump) state.rev = Date.now();
     try {
       localStorage.setItem(
         STORE_KEY,
@@ -59,6 +71,8 @@
           items: state.items,
           playlists: state.playlists,
           target: state.target,
+          opts: state.opts,
+          rev: state.rev,
         })
       );
     } catch (_) {}
@@ -142,7 +156,50 @@
     return `${d} day${d === 1 ? '' : 's'} ${hr} hour${hr === 1 ? '' : 's'}`;
   }
 
-  const makeItem = (tile, id) => ({ id, title: titleOf(tile, id), dur: durationOf(tile) });
+  // ---- upload age, read from YouTube's "3 weeks ago" / "9d ago" labels (English)
+  const AGE_RE =
+    /(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|wks?|months?|mos?|years?|yrs?|s|m|h|d|w|y)\s+ago\b/i;
+  const AGE_META_SEL = [
+    '#metadata-line',
+    '#video-info',
+    'ytd-video-meta-block',
+    'yt-content-metadata-view-model',
+    '.yt-content-metadata-view-model__metadata-row',
+  ].join(',');
+  const dataText = (t) =>
+    typeof t === 'string'
+      ? t
+      : (t && (t.simpleText || t.content || (t.runs && t.runs.map((r) => r.text).join('')))) || '';
+
+  // Returns { days, label } (approximate age in days, short label) or null.
+  function ageOf(tile) {
+    const d = tile.data || (tile.__data && tile.__data.data);
+    const texts = [];
+    if (d) texts.push(dataText(d.publishedTimeText), dataText(d.videoInfo));
+    tile.querySelectorAll(AGE_META_SEL).forEach((el) => texts.push(el.textContent || ''));
+    texts.push(tile.textContent || '');
+    for (const t of texts) {
+      const m = t && t.match(AGE_RE);
+      if (!m) continue;
+      const n = Number(m[1]);
+      const u = m[2].toLowerCase();
+      let per, short;
+      if (u.startsWith('mo')) [per, short] = [30, 'mo'];
+      else if (u.startsWith('mi') || u === 'm') [per, short] = [1 / 1440, 'min'];
+      else if (u.startsWith('s')) [per, short] = [1 / 86400, 's'];
+      else if (u.startsWith('h')) [per, short] = [1 / 24, 'h'];
+      else if (u.startsWith('d')) [per, short] = [1, 'd'];
+      else if (u.startsWith('w')) [per, short] = [7, 'w'];
+      else [per, short] = [365, 'y'];
+      return { days: n * per, label: n + short };
+    }
+    return null;
+  }
+
+  const makeItem = (tile, id) => {
+    const age = ageOf(tile);
+    return { id, title: titleOf(tile, id), dur: durationOf(tile), age: age ? age.label : null };
+  };
 
   function allTiles() {
     const out = [];
@@ -183,6 +240,13 @@
               filled = true;
             }
           }
+          if (it.age == null) {
+            const a = ageOf(tile);
+            if (a) {
+              it.age = a.label;
+              filled = true;
+            }
+          }
         }
         if (!tile.hasAttribute('data-ytms-tile')) tile.setAttribute('data-ytms-tile', '');
         const n = order.get(id);
@@ -200,7 +264,7 @@
       }
     });
     if (filled) {
-      save();
+      save(false);
       renderList();
     }
   }
@@ -245,26 +309,91 @@
     changed();
   }
 
-  // Visible videos whose title contains the text (case-insensitive), in page order.
-  function matchingTiles(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return allTiles().filter(
-      ({ tile }) => tile.offsetParent !== null && titleOf(tile, '').toLowerCase().includes(q)
-    );
+  // ---- filter: title text and/or upload date
+  const CHIPS = [
+    { key: 'd7', label: 'Last 7 days', test: (days) => days <= 7, after: 7 },
+    { key: 'd30', label: 'Last 30 days', test: (days) => days <= 30, after: 30 },
+    { key: 'y1', label: 'Last year', test: (days) => days < 365, after: 365 },
+    { key: 'old', label: 'Older than 1 year', test: (days) => days >= 365, before: 365 },
+  ];
+  let activeChip = null; // a CHIPS key, 'custom', or null
+
+  const DAY_MS = 86400000;
+  const isoDate = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const daysAgoDate = (n) => isoDate(new Date(Date.now() - n * DAY_MS));
+  const parseDate = (v) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  };
+
+  function currentFilter() {
+    const q = filterInput.value.trim().toLowerCase();
+    const chip = CHIPS.find((c) => c.key === activeChip);
+    const after = parseDate(afterInput.value);
+    const before = parseDate(beforeInput.value);
+    let dateTest = null;
+    if (chip) dateTest = chip.test;
+    else if (after || before) {
+      const lo = after ? after.getTime() : -Infinity; // start of the "newer than" day
+      const hi = before ? before.getTime() + DAY_MS : Infinity; // end of the "older than" day
+      dateTest = (days) => {
+        const uploaded = Date.now() - days * DAY_MS;
+        return uploaded >= lo && uploaded <= hi;
+      };
+    }
+    return { q, dateTest, empty: !q && !dateTest };
+  }
+
+  // Visible videos matching the filter, in page order.
+  function matchingTiles(f) {
+    if (f.empty) return [];
+    return allTiles().filter(({ tile }) => {
+      if (tile.offsetParent === null) return false;
+      if (f.q && !titleOf(tile, '').toLowerCase().includes(f.q)) return false;
+      if (f.dateTest) {
+        const age = ageOf(tile);
+        if (!age || !f.dateTest(age.days)) return false;
+      }
+      return true;
+    });
   }
 
   function syncFilterBtn() {
-    const q = filterInput.value.trim();
-    const n = q ? matchingTiles(q).length : 0;
-    filterBtn.textContent = q ? `Select ${n} match${n === 1 ? '' : 'es'}` : 'Select matches';
+    const f = currentFilter();
+    const n = f.empty ? 0 : matchingTiles(f).length;
+    filterBtn.textContent = f.empty ? 'Select matches' : `Select ${n} match${n === 1 ? '' : 'es'}`;
+    for (const el of chipEls) el.classList.toggle('ytms-on', el.dataset.key === activeChip);
   }
 
-  function selectByTitle() {
+  function setChip(key) {
+    activeChip = activeChip === key ? null : key;
+    const chip = CHIPS.find((c) => c.key === activeChip);
+    if (chip) {
+      afterInput.value = chip.after ? daysAgoDate(chip.after) : '';
+      beforeInput.value = chip.before ? daysAgoDate(chip.before) : '';
+    } else if (activeChip === 'custom') {
+      afterInput.focus();
+    } else {
+      afterInput.value = '';
+      beforeInput.value = '';
+    }
+    syncFilterBtn();
+  }
+
+  function resetFilter() {
+    filterInput.value = '';
+    afterInput.value = '';
+    beforeInput.value = '';
+    activeChip = null;
+    syncFilterBtn();
+  }
+
+  function selectByFilter() {
     if (busy) return;
-    const q = filterInput.value.trim();
-    if (!q) return setStatus('Type part of a title to filter by.', 'err');
-    const matches = matchingTiles(q);
+    const f = currentFilter();
+    if (f.empty) return setStatus('Type part of a title or choose a date range first.', 'err');
+    const matches = matchingTiles(f);
     let added = 0;
     for (const { tile, id } of matches) {
       if (indexOfId(id) < 0) {
@@ -276,11 +405,21 @@
     syncFilterBtn();
     setStatus(
       matches.length
-        ? `Selected ${added} video${added === 1 ? '' : 's'} with "${q}" in the title` +
+        ? `Selected ${added} matching video${added === 1 ? '' : 's'}` +
             (matches.length - added ? ` (${matches.length - added} already selected).` : '.')
-        : `No videos on this page have "${q}" in the title.`,
+        : 'No videos on this page match the filter.',
       matches.length ? 'ok' : 'err'
     );
+  }
+
+  // ---- options
+  function applyOptions() {
+    document.documentElement.setAttribute('data-lasso-duration', state.opts.duration ? 'on' : 'off');
+    document.dispatchEvent(new CustomEvent('lasso-options'));
+    if (durSwitch) {
+      durSwitch.classList.toggle('ytms-on', state.opts.duration);
+      durSwitch.setAttribute('aria-checked', String(state.opts.duration));
+    }
   }
 
   function onClick(e) {
@@ -514,6 +653,34 @@
     return svg;
   }
 
+  function gearIcon() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    const attrs = {
+      width: 16,
+      height: 16,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 2,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'aria-hidden': 'true',
+    };
+    Object.entries(attrs).forEach(([k, v]) => svg.setAttribute(k, v));
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', 12);
+    c.setAttribute('cy', 12);
+    c.setAttribute('r', 3);
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute(
+      'd',
+      'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'
+    );
+    svg.append(c, p);
+    return svg;
+  }
+
   function funnelIcon() {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
@@ -546,7 +713,8 @@
     }
   }
 
-  let root, topBtn, topCount, filterInput, filterBtn, filterRow, filterToggle, panel, countEl, listEl, selectEl, newRow, newName, newPrivacy;
+  let root, topBtn, topCount, filterInput, filterBtn, filterRow, filterToggle,
+    afterInput, beforeInput, chipEls = [], optBox, optToggle, durSwitch, panel, countEl, listEl, selectEl, newRow, newName, newPrivacy;
   let urlRow, urlInput, addBtn, removeBtn, totalEl, statusEl, barEl, barFill;
 
   function buildUI() {
@@ -566,19 +734,95 @@
     );
     filterInput = h('input', {
       type: 'text',
-      placeholder: 'Title contains…',
+      placeholder: 'Any title',
       oninput: syncFilterBtn,
       onkeydown: (e) => {
-        if (e.key === 'Enter') selectByTitle();
+        if (e.key === 'Enter') selectByFilter();
       },
     });
-    filterBtn = h('button', { onclick: selectByTitle }, 'Select matches');
-    filterRow = h('div', { class: 'ytms-row', style: 'display:none' }, filterInput, filterBtn);
+    const onDateInput = () => {
+      activeChip = afterInput.value || beforeInput.value ? 'custom' : null;
+      syncFilterBtn();
+    };
+    afterInput = h('input', { type: 'date', title: 'Uploaded on or after this date', oninput: onDateInput });
+    beforeInput = h('input', { type: 'date', title: 'Uploaded on or before this date', oninput: onDateInput });
+    chipEls = CHIPS.concat([{ key: 'custom', label: 'Custom…' }]).map((c) =>
+      h('button', { class: 'ytms-chip', 'data-key': c.key, onclick: () => setChip(c.key) }, c.label)
+    );
+    filterBtn = h(
+      'button',
+      { class: 'ytms-primary', style: 'flex:1', onclick: selectByFilter },
+      'Select matches'
+    );
+    filterRow = h(
+      'div',
+      { class: 'ytms-box', style: 'display:none' },
+      h('div', { class: 'ytms-label' }, 'Title contains'),
+      h('div', { class: 'ytms-row' }, filterInput),
+      h('div', { class: 'ytms-label' }, 'Uploaded'),
+      h('div', { class: 'ytms-chips' }, ...chipEls),
+      h(
+        'div',
+        { class: 'ytms-dates' },
+        h('label', null, h('span', null, 'Newer than'), afterInput),
+        h('label', null, h('span', null, 'Older than'), beforeInput)
+      ),
+      h(
+        'div',
+        { class: 'ytms-hint' },
+        'Uses YouTube\'s "3 weeks ago" labels, so dates are approximate for older videos.'
+      ),
+      h('div', { class: 'ytms-row' }, filterBtn, h('button', { onclick: resetFilter }, 'Reset'))
+    );
+
+    durSwitch = h('button', {
+      class: 'ytms-switch',
+      role: 'switch',
+      'aria-label': 'Playlist duration panel',
+      onclick: () => {
+        state.opts.duration = !state.opts.duration;
+        save();
+        applyOptions();
+      },
+    });
+    optBox = h(
+      'div',
+      { class: 'ytms-box', style: 'display:none' },
+      h('div', { class: 'ytms-label' }, 'Options'),
+      h(
+        'div',
+        { class: 'ytms-opt' },
+        h(
+          'div',
+          null,
+          h('div', { class: 'ytms-optname' }, 'Playlist duration panel'),
+          h('div', { class: 'ytms-hint' }, 'Show the total-length box on playlist pages')
+        ),
+        durSwitch
+      ),
+      h('div', { class: 'ytms-hint', style: 'text-align:center' }, 'Changes apply straight away and are remembered.')
+    );
+    optToggle = h(
+      'button',
+      {
+        class: 'ytms-gear',
+        title: 'Options',
+        'aria-label': 'Options',
+        'aria-expanded': 'false',
+        onclick: () => {
+          const open = optBox.style.display === 'none';
+          optBox.style.display = open ? '' : 'none';
+          optToggle.classList.toggle('ytms-on', open);
+          optToggle.setAttribute('aria-expanded', String(open));
+        },
+      },
+      gearIcon()
+    );
     filterToggle = h(
       'button',
       {
         class: 'ytms-iconbtn',
-        title: 'Select videos by title',
+        title: 'Select videos by title or upload date',
         'aria-expanded': 'false',
         onclick: () => {
           const open = filterRow.style.display === 'none';
@@ -630,8 +874,10 @@
         'div',
         { class: 'ytms-row' },
         countEl,
+        optToggle,
         h('button', { title: 'Stop selecting (Esc)', onclick: () => setActive(false) }, 'Done')
       ),
+      optBox,
       totalEl,
       h(
         'div',
@@ -749,7 +995,11 @@
           { class: 'ytms-item' },
           h('span', { class: 'ytms-num' }, i + 1),
           h('span', { class: 'ytms-name', title: it.title }, it.title),
-          h('span', { class: 'ytms-dur' }, it.dur != null ? fmtDuration(it.dur) : ''),
+          h(
+            'span',
+            { class: 'ytms-dur' },
+            [it.age, it.dur != null ? fmtDuration(it.dur) : null].filter(Boolean).join(' · ')
+          ),
           h('button', { title: 'Move up', onclick: () => move(i, -1) }, '▲'),
           h('button', { title: 'Move down', onclick: () => move(i, 1) }, '▼'),
           h(
@@ -814,14 +1064,16 @@
     }
   }
 
-  function setActive(on) {
+  // persist=false when mirroring another tab: a tab must never write in response
+  // to a storage event, or two tabs can overwrite each other forever.
+  function setActive(on, persist = true) {
     state.active = on;
     topBtn.classList.toggle('ytms-on', on);
     topBtn.setAttribute('aria-pressed', String(on));
     topBtn.title = on ? 'Exit Lasso' : 'Lasso: select multiple videos';
     root.classList.toggle('ytms-open', on);
     panel.style.display = on ? '' : 'none';
-    save();
+    if (persist) save();
     mark();
     if (on) refreshPlaylists(false);
   }
@@ -925,6 +1177,7 @@
     renderPlaylists();
     renderList();
     setActive(state.active);
+    applyOptions();
 
     window.addEventListener('click', onClick, true);
     window.addEventListener('mousedown', onMouseDown, true);
@@ -939,10 +1192,16 @@
     window.addEventListener('yt-navigate-finish', scheduleMark);
     window.addEventListener('storage', (e) => {
       if (e.key !== STORE_KEY || busy) return; // keep tabs in sync
+      try {
+        if ((Number(JSON.parse(e.newValue || '{}').rev) || 0) < state.rev) return; // stale copy
+      } catch (_) {
+        return;
+      }
       load();
       renderPlaylists();
       renderList();
-      setActive(state.active);
+      setActive(state.active, false);
+      applyOptions();
     });
   }
 

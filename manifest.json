@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lasso: Video Multi-Select for YouTube",
   "short_name": "Lasso",
-  "version": "1.6.3",
+  "version": "1.7.1",
   "description": "Select many YouTube videos and add them to or remove them from a playlist in order, and see any playlist's total duration.",
   "minimum_chrome_version": "111",
   "content_scripts": [

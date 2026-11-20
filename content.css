@@ -421,3 +421,120 @@ html.ytms-active [data-ytms-order]:hover::before {
   background: var(--ms-accent);
   color: var(--ms-on-accent);
 }
+
+/* ---------- filter + options boxes ---------- */
+#ytms-root .ytms-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--ms-divider);
+  border-radius: 10px;
+  background: var(--ms-list-bg);
+}
+#ytms-root .ytms-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ms-text-muted);
+}
+#ytms-root .ytms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#ytms-root .ytms-panel button.ytms-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+#ytms-root .ytms-panel button.ytms-chip.ytms-on {
+  background: var(--ms-accent);
+  color: var(--ms-on-accent);
+}
+#ytms-root .ytms-dates {
+  display: flex;
+  gap: 8px;
+}
+#ytms-root .ytms-dates label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--ms-text-muted);
+}
+#ytms-root .ytms-dates input {
+  flex: none;
+  width: 100%;
+  color-scheme: dark;
+}
+html:not([dark]) #ytms-root .ytms-dates input {
+  color-scheme: light;
+}
+#ytms-root .ytms-panel button.ytms-gear {
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#ytms-root .ytms-panel button.ytms-gear.ytms-on {
+  background: var(--ms-accent-soft);
+  color: var(--ms-accent-text);
+}
+#ytms-root .ytms-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--ms-divider);
+}
+#ytms-root .ytms-optname {
+  font-size: 13px;
+  font-weight: 500;
+}
+#ytms-root .ytms-panel button.ytms-switch {
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border-radius: 10px;
+  background: #717171;
+  transition: background var(--ms-out) var(--ms-ease);
+}
+#ytms-root .ytms-panel button.ytms-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left var(--ms-out) var(--ms-ease);
+}
+#ytms-root .ytms-panel button.ytms-switch.ytms-on {
+  background: var(--ms-accent);
+}
+#ytms-root .ytms-panel button.ytms-switch.ytms-on::after {
+  left: 18px;
+}
+#ytms-root .ytms-panel button:focus-visible {
+  outline: 2px solid var(--ms-select-ring);
+  outline-offset: 2px;
+}
+#ytms-root .ytms-panel {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+#ytms-root .ytms-panel > * {
+  flex-shrink: 0;
+}
+#ytms-root .ytms-panel > .ytms-list {
+  flex-shrink: 1;
+}
