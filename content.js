@@ -114,6 +114,9 @@
 
   // Length in seconds read from the thumbnail's time badge, or null if not shown.
   function durationOf(tile) {
+    const d = tile.data || (tile.__data && tile.__data.data);
+    const exact = d && parseInt(d.lengthSeconds, 10);
+    if (exact > 0) return exact;
     const texts = [...tile.querySelectorAll(DUR_SEL)].map((el) => el.textContent || '');
     const a = tile.querySelector(LINK_SEL);
     if (a) texts.push(a.textContent || '');
@@ -639,18 +642,6 @@
         'div',
         { class: 'ytms-row' },
         h('button', { onclick: selectAllVisible }, 'Select all on page'),
-        h(
-          'button',
-          {
-            onclick: () => {
-              if (busy) return;
-              state.items = [];
-              lastClickedId = null;
-              changed();
-            },
-          },
-          'Clear'
-        ),
         filterToggle
       ),
       filterRow,
@@ -664,7 +655,12 @@
       newRow,
       urlRow,
       h('div', { class: 'ytms-row' }, addBtn),
-      h('div', { class: 'ytms-row' }, removeBtn),
+      h(
+        'div',
+        { class: 'ytms-row' },
+        removeBtn,
+        h('button', { title: 'Clear the selection', onclick: clearSelection }, 'Clear')
+      ),
       barEl,
       statusEl,
       h(
@@ -687,6 +683,32 @@
       root.addEventListener(ev, (e) => e.stopPropagation());
     }
     document.body.appendChild(root);
+  }
+
+  function clearSelection() {
+    if (busy) return;
+    state.items = [];
+    lastClickedId = null;
+    changed();
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // clipboard API unavailable or blocked: fall back to a hidden field
+      const ta = h('textarea', { style: 'position:fixed;opacity:0;top:0;left:0' });
+      ta.value = text;
+      root.append(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch (_e) {}
+      ta.remove();
+      return ok;
+    }
   }
 
   function renderList() {
@@ -858,10 +880,18 @@
       lastClickedId = null;
       save();
       mark();
-      const link = h(
-        'a',
-        { href: '/playlist?list=' + encodeURIComponent(playlistId), target: '_blank' },
-        'Open playlist'
+      const playlistUrl = location.origin + '/playlist?list=' + encodeURIComponent(playlistId);
+      const copyBtn = h(
+        'button',
+        {
+          class: 'ytms-mini',
+          onclick: async () => {
+            const ok = await copyText(playlistUrl);
+            copyBtn.textContent = ok ? 'Copied!' : 'Copy failed';
+            setTimeout(() => (copyBtn.textContent = 'Copy link'), 1500);
+          },
+        },
+        'Copy link'
       );
       const done = removing ? 'Removed' : 'Added';
       const prep = removing ? 'from' : 'to';
@@ -869,10 +899,15 @@
         'span',
         null,
         failed.length
-          ? `${done} ${ok} of ${items.length} ${prep} "${playlistTitle}". ${failed.length} failed and are still selected. `
-          : `${done} ${ok} video${ok === 1 ? '' : 's'} ${prep} "${playlistTitle}". `,
-        removing && ok ? 'Reload the page to see the change. ' : null,
-        link
+          ? `${done} ${ok} of ${items.length} ${prep} "${playlistTitle}". ${failed.length} failed and are still selected.`
+          : `${done} ${ok} video${ok === 1 ? '' : 's'} ${prep} "${playlistTitle}".`,
+        removing && ok ? ' Reload the page to see the change.' : null,
+        h(
+          'span',
+          { class: 'ytms-links' },
+          copyBtn,
+          h('a', { class: 'ytms-mini', href: playlistUrl, target: '_blank' }, 'Open playlist')
+        )
       );
       setStatus(msg, failed.length ? 'err' : 'ok');
     } catch (err) {

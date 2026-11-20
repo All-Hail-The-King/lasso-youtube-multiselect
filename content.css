@@ -397,3 +397,27 @@ html.ytms-active [data-ytms-order]:hover::before {
   color: var(--ms-select-ring);
   font-size: 13px;
 }
+#ytms-root .ytms-links {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+#ytms-root .ytms-panel .ytms-mini,
+#ytms-root .ytms-status a.ytms-mini {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-accent-soft);
+  color: var(--ms-accent-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+}
+#ytms-root .ytms-panel .ytms-mini:hover,
+#ytms-root .ytms-status a.ytms-mini:hover {
+  background: var(--ms-accent);
+  color: var(--ms-on-accent);
+}

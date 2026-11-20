@@ -11,6 +11,7 @@ Lasso is a Chrome extension for building and cleaning up YouTube playlists in bu
 - **Remove from a playlist.** Remove every selected video from the chosen playlist, for mass clean-up or emptying a playlist.
 - **Select by title.** Type part of a title and select every video on the page that contains it.
 - **Total length.** The panel shows the combined length of the selection, in hours and in days and hours.
+- **Playlist duration.** On any playlist page, a panel shows the playlist's total length, how many videos were counted, and how many were not. A **Load all videos** button loads playlists longer than 100 videos.
 - **Keeps your selection.** The selection survives searches and page changes, so you can collect hundreds of videos from many pages before adding them.
 
 ## Install
@@ -38,9 +39,18 @@ To update later, download the ZIP again, replace the files, click the reload ico
 6. Click **Add N videos to playlist** or **Remove N from playlist**.
 7. Click **Done** (or press Esc) to leave select mode.
 
+### Seeing a playlist's total duration
+
+1. Open a playlist page (`youtube.com/playlist?list=…`), or a video with a playlist open beside it.
+2. The **Playlist duration** panel appears by the playlist's header. It shows the total as h:mm:ss, as hours, and as days, hours and minutes.
+3. If the playlist has more than 100 videos, click **Load all videos** so every video is counted.
+4. "Videos not counted" covers videos not loaded yet and videos with no length (private, deleted, live or upcoming).
+
+This works on its own; you don't need to turn Lasso's select mode on.
+
 ### Emptying a playlist
 
-1. Open the playlist and scroll to the bottom so every video has loaded.
+1. Open the playlist and click **Load all videos** in the Playlist duration panel (or scroll to the bottom) so every video has loaded.
 2. Click **Select all on page**.
 3. Choose that same playlist in the dropdown.
 4. Click **Remove N from playlist** and confirm.

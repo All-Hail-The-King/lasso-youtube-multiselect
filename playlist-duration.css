@@ -1,0 +1,38 @@
+/* Lasso: playlist duration panel */
+#ypd-panel {
+  box-sizing: border-box;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  width: 100%;
+  max-width: 420px;
+  z-index: 10;
+  position: relative;
+}
+#ypd-panel.ypd-light { background: rgba(0, 0, 0, 0.06); color: #0f0f0f; }
+#ypd-panel.ypd-floating {
+  position: fixed; left: 16px; bottom: 16px; width: 300px; margin: 0;
+  background: rgba(28, 28, 28, 0.96); color: #fff; z-index: 3000;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+#ypd-panel .ypd-title { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; margin-bottom: 6px; }
+#ypd-panel .ypd-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+#ypd-panel .ypd-label { opacity: .85; white-space: nowrap; }
+#ypd-panel .ypd-value { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+#ypd-panel .ypd-good { color: #3ddc84; }
+#ypd-panel .ypd-warn { color: #ffb74d; }
+#ypd-panel.ypd-light .ypd-good { color: #0a7d3c; }
+#ypd-panel.ypd-light .ypd-warn { color: #b25e00; }
+#ypd-panel .ypd-note { font-size: 11px; opacity: .7; margin-top: 4px; }
+#ypd-panel .ypd-sep { height: 1px; background: currentColor; opacity: .15; margin: 6px 0; }
+#ypd-panel button {
+  margin-top: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: 16px;
+  background: var(--ms-accent, #7c3aed); color: var(--ms-on-accent, #fff); font: inherit; font-weight: 600; cursor: pointer;
+}
+#ypd-panel button:hover:not(:disabled) { background: var(--ms-accent-hover, #6d28d9); }
+#ypd-panel button:disabled { opacity: .6; cursor: default; }
