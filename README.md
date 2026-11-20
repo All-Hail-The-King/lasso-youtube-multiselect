@@ -34,6 +34,10 @@ To update later, download the ZIP again, replace the files, click the reload ico
    - **Ctrl-click** (Cmd-click on Mac) to open a video normally.
    - **Select all on page** selects every video currently loaded on the page.
    - **Filter** opens a **Title contains…** box that selects every loaded video whose title includes the text you type (not case-sensitive).
+   - **On the Home page, click the title area under a video, not the thumbnail.** Thumbnails on Home start a preview when you hover, and clicking one opens the video instead of selecting it. Everywhere else (search, channel pages, playlists) you can click anywhere on the video.
+
+   <img src="home-click-area.webp" alt="A video on the YouTube Home page: the thumbnail is marked 'Not the thumbnail', and the title and channel row underneath is highlighted in purple and marked 'Click here to select'" width="480">
+
 4. In the panel you can reorder videos with ▲ / ▼, remove one with ✕, or **Clear** everything.
 5. Choose a playlist in the dropdown, or pick **＋ New playlist…** or **Paste playlist link…**. Use ⟳ to reload your playlist list.
 6. Click **Add N videos to playlist** or **Remove N from playlist**.
@@ -47,6 +51,8 @@ To update later, download the ZIP again, replace the files, click the reload ico
 4. "Videos not counted" covers videos not loaded yet and videos with no length (private, deleted, live or upcoming).
 
 This works on its own; you don't need to turn Lasso's select mode on.
+
+![A YouTube playlist page with the Playlist duration panel in the left-hand header, showing a total of 4:12:34 across 4 videos, and the Lasso panel open at the bottom right](playlist-duration.webp)
 
 ### Emptying a playlist
 
